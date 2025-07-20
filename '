@@ -1,0 +1,171 @@
+use crate::{
+    error::EofErrMapper,
+    prelude::{LexToken, LexTokenKind},
+};
+use utils::span::Span;
+
+use crate::error::{Error, ErrorKind};
+
+use super::{Symbol, terminals::LiteralToken};
+
+#[derive(Debug, PartialEq)]
+pub enum ExprToken {
+    LitExpr(LiteralToken),
+    BinExpr(BinExprToken),
+    UnExpr(UnEpxrToken),
+    ParenExpr(ParenExprToken),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum BinOp {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct BinExprToken {
+    pub lhs: Box<ExprToken>,
+    pub rhs: Box<ExprToken>,
+    pub op: BinOp,
+    pub span: Span,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Unop {
+    Negation,
+}
+
+impl Unop {
+    fn prefix_binding_power(&self) -> usize {
+        match self {
+            Self::Negation => 7,
+        }
+    }
+}
+
+impl TryFrom<LexToken> for Unop {
+    type Error = crate::error::Error;
+    fn try_from(value: LexToken) -> Result<Self, Self::Error> {
+        match value.kind() {
+            LexTokenKind::Minus => Ok(Self::Negation),
+            _ => Err(Error::new(value.span(), ErrorKind::UnexpectedToken)),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct UnEpxrToken {
+    pub op: Unop,
+    pub expr: Box<ExprToken>,
+    pub span: Span,
+}
+
+impl<'s> Symbol<'s> for UnEpxrToken {
+    fn parse(parser: &mut super::Parser<'s>) -> crate::error::Result<Self> {
+        let next_token = parser.next_lexed_token().map_eof_to_err()?;
+
+        let un_op = TryInto::<Unop>::try_into(next_token)?;
+        let right_bp = un_op.prefix_binding_power();
+        let inner = parse_expr_helper(parser, right_bp)?;
+
+        let span = next_token.span() + inner.span();
+
+        Ok(Self {
+            op: un_op,
+            expr: Box::new(inner),
+            span,
+        })
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ParenExprToken {
+    pub inner: Box<ExprToken>,
+    pub span: Span,
+}
+
+impl<'s> Symbol<'s> for ParenExprToken {
+    fn parse(parser: &mut super::Parser<'s>) -> crate::error::Result<Self> {
+        let next_token = parser.next_lexed_token().map_eof_to_err()?;
+
+        if next_token.kind() != LexTokenKind::LeftParen {
+            return Err(Error::new(next_token.span(), ErrorKind::UnexpectedToken));
+        };
+
+        let mut span = next_token.span();
+
+        let expr = parse_expr_helper(parser, 0)?;
+
+        span += expr.span();
+
+        let next_token = parser.next_lexed_token().map_eof_to_err()?;
+
+        if next_token.kind() != LexTokenKind::RightParen {
+            return Err(Error::new(next_token.span(), ErrorKind::UnexpectedToken));
+        };
+
+        span += tok.span;
+
+        Ok(Self {
+            inner: Box::new(expr),
+            span,
+        })
+    }
+}
+
+// fn parse_expr_helper<'s>(
+//     parser: &mut super::Parser<'s>,
+//     minimum_bp: usize,
+// ) -> crate::error::Result<ExprToken> {
+//     let next_token = parser.peek_lexed_token().and_then(|token| {
+//         if token.kind() == LexTokenKind::Eof {
+//             Err(Error::new(token.span(), ErrorKind::UnexpectedEOF))
+//         } else {
+//             Ok(token)
+//         }
+//     })?;
+//
+//     let kind = next_token.kind();
+//
+//     let mut lhs = match kind {
+//         kind if kind.is_prefix_op() => UnEpxrToken::parse(parser).map(ExprToken::UnExpr)?,
+//         kind if kind.is_literal() => LiteralToken::parse(parser).map(ExprToken::LitExpr)?,
+//         LexTokenKind::LeftParen => ParenExprToken::parse(parser).map(ExprToken::ParenExpr)?,
+//         _ => {
+//             return Err(Error::new(next_token.span(), kind));
+//         }
+//     };
+//
+//     loop {
+//         let op = match parser.peek_lexed_token() {
+//             None => break,
+//             Some(op_res) => op_res.diagnose(&mut parser.diagnostics)?,
+//         };
+//
+//         if !op.kind.is_infix_op() {
+//             break;
+//         }
+//
+//         let (left_bp, right_bp) = op.kind.infix_binding_power()?;
+//
+//         if left_bp < minimum_bp {
+//             break;
+//         }
+//
+//         parser.next();
+//         let rhs = parse_expr_helper(parser, right_bp)?;
+//
+//         let span = lhs.span() + op.span + rhs.span();
+//
+//         lhs = ExprToken::BinExpr(BinExprToken {
+//             lhs: Box::new(lhs),
+//             op: op.kind.try_into()?,
+//             rhs: Box::new(rhs),
+//             span,
+//         })
+//     }
+//
+//     Ok(lhs)
+// }

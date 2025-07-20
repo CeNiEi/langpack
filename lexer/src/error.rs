@@ -1,6 +1,6 @@
 use crate::Span;
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub(crate) type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub struct Error {
@@ -12,9 +12,17 @@ impl Error {
     pub fn new(span: Span, kind: ErrorKind) -> Self {
         Self { span, kind }
     }
+
+    pub fn kind(&self) -> ErrorKind {
+        self.kind
+    }
+
+    pub fn span(&self) -> Span {
+        self.span
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum ErrorKind {
     UnexpectedEof,
     UnexpectedInput,

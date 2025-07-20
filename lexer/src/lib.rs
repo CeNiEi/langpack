@@ -1,25 +1,28 @@
 use std::str::Chars;
 
 use error::{Error, ErrorKind, Result};
-use span::Span;
 use token::{Token, TokenKind};
+use utils::span::Span;
 
-mod error;
-mod span;
-mod token;
+pub mod error;
+pub mod token;
 
 #[derive(Clone, Copy)]
-pub(crate) struct Lexer<'a> {
+pub struct Lexer<'a> {
     source: &'a str,
     pointer: usize,
 }
 
 impl<'a> Lexer<'a> {
-    pub(crate) fn new(source: &'a str) -> Self {
+    pub fn new(source: &'a str) -> Self {
         Self { source, pointer: 0 }
     }
 
-    pub(crate) fn lex(&mut self) -> Result<Token> {
+    pub fn source(&self) -> &str {
+        self.source
+    }
+
+    pub fn lex(&mut self) -> Result<Token> {
         self.skip_whitespace();
 
         let Some(peeked) = self.peek() else {

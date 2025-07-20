@@ -1,4 +1,4 @@
-use crate::span::Span;
+use utils::span::Span;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Token {
@@ -9,6 +9,14 @@ pub struct Token {
 impl Token {
     pub fn new(span: Span, kind: TokenKind) -> Self {
         Self { span, kind }
+    }
+
+    pub fn span(&self) -> Span {
+        self.span
+    }
+
+    pub fn kind(&self) -> TokenKind {
+        self.kind
     }
 }
 
