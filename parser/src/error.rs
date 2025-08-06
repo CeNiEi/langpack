@@ -9,6 +9,14 @@ pub struct Error {
     kind: ErrorKind,
 }
 
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for Error {}
+
 impl Error {
     pub fn new(span: Span, kind: ErrorKind) -> Self {
         Self { span, kind }

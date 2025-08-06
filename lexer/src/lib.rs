@@ -22,12 +22,31 @@ impl<'a> Lexer<'a> {
         self.source
     }
 
+    pub fn drain(mut self) -> Vec<Result<Token>> {
+        let mut res = Vec::new();
+        loop {
+            let lexed_token = self.lex();
+
+            if lexed_token
+                .as_ref()
+                .is_ok_and(|tok| tok.kind() == TokenKind::Eof)
+            {
+                break;
+            }
+
+            res.push(lexed_token);
+        }
+        res
+    }
+
     pub fn lex(&mut self) -> Result<Token> {
         self.skip_whitespace();
 
         let Some(peeked) = self.peek() else {
             return Ok(Token::new(Span::new(self.pointer, 0), TokenKind::Eof));
         };
+
+        let start = self.pointer;
 
         let (kind, len) = match peeked {
             '+' => (TokenKind::Plus, peeked.len_utf8()),
@@ -49,7 +68,9 @@ impl<'a> Lexer<'a> {
             }
         };
 
-        Ok(Token::new(Span::new(self.pointer, len), kind))
+        self.bump(len);
+
+        Ok(Token::new(Span::new(start, len), kind))
     }
 
     fn lex_idents(&mut self) -> (TokenKind, usize) {
@@ -138,5 +159,117 @@ impl<'a> Lexer<'a> {
 
     fn bump(&mut self, by: usize) {
         self.pointer += by;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::error::Result;
+
+    macro_rules! lex {
+
+        ($($variant: ident: [$start: literal, $len: literal $(,)?] $(,)?),* $(,)?) => {
+            vec![$(
+                Ok(crate::token::Token::new(
+                    utils::span::Span::new($start, $len),
+                    crate::token::TokenKind::$variant,
+                ))
+            ),*]
+        };
+
+        ($variant: ident: [$start: literal, $len: literal $(,)?] $(,)?) => {
+            Ok(crate::token::Token::new(
+                utils::span::Span::new($start, $len),
+                crate::token::TokenKind::$variant,
+            ))
+        };
+    }
+
+    macro_rules! lex_assert {
+        ($source: expr, [$($variant: ident: [$start: literal, $len: literal $(,)?] $(,)?),* $(,)?] $(,)?) => {{
+            let lexer = crate::Lexer::new($source);
+            let lexed = lexer.drain();
+            let expected: Vec<Result<crate::token::Token>> = lex![$($variant: [$start, $len]),*];
+
+            assert_eq!(expected, lexed);
+        }};
+    }
+
+    #[test]
+    fn empty() {
+        let source = r#""#;
+        lex_assert!(source, [])
+    }
+
+    #[test]
+    fn whitespace() {
+        let source = r#"
+
+        "#;
+
+        lex_assert!(source, [])
+    }
+
+    #[test]
+    fn whole_num() {
+        let source = r#"5"#;
+
+        lex_assert!(
+            source, [Number: [0, 1]]
+        );
+    }
+
+    #[test]
+    fn float_num() {
+        let source = r#"5.54"#;
+
+        lex_assert!(
+            source, [Number: [0, 4]]
+        );
+    }
+
+    #[test]
+    fn neg_whole_num() {
+        let source = r#"-5"#;
+
+        lex_assert!(
+            source, [Minus: [0, 1], Number: [1, 1]]
+        );
+    }
+
+    #[test]
+    fn neg_float_num() {
+        let source = r#"-5.54"#;
+        lex_assert!(
+            source, [Minus: [0, 1], Number: [1, 4]]
+        );
+    }
+
+    #[test]
+    fn expr() {
+        let source = r#"3 + 5.2"#;
+
+        lex_assert!(
+            source, [Number: [0, 1], Plus: [2, 1], Number: [4, 3]]
+        );
+    }
+
+    #[test]
+    fn parens() {
+        let source = r#"((3) + (5.2))"#;
+
+        lex_assert!(
+            source, [
+                LeftParen: [0, 1],
+                LeftParen: [1, 1],
+                Number: [2, 1],
+                RightParen: [3, 1],
+                Plus: [5, 1],
+                LeftParen: [7, 1],
+                Number: [8, 3],
+                RightParen: [11, 1],
+                RightParen: [12, 1]
+            ]
+        );
     }
 }

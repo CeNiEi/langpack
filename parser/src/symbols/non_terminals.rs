@@ -10,7 +10,7 @@ use crate::error::{Error, ErrorKind};
 use super::{Symbol, terminals::LiteralToken};
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum ExprToken {
+pub enum ExprToken {
     LitExpr(LiteralToken),
     BinExpr(BinExprToken),
     UnExpr(UnEpxrToken),
@@ -25,6 +25,12 @@ impl ExprToken {
             Self::UnExpr(a) => a.span(),
             Self::ParenExpr(a) => a.span(),
         }
+    }
+}
+
+impl<'s> Symbol<'s> for ExprToken {
+    fn parse(parser: &mut super::Parser<'s>) -> crate::error::Result<Self> {
+        parse_expr_helper(parser, 0)
     }
 }
 
@@ -59,7 +65,7 @@ impl TryFrom<LexToken> for BinOp {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct BinExprToken {
+pub struct BinExprToken {
     lhs: Box<ExprToken>,
     rhs: Box<ExprToken>,
     op: BinOp,
@@ -150,7 +156,7 @@ impl<'s> Symbol<'s> for UnEpxrToken {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct ParenExprToken {
+pub struct ParenExprToken {
     inner: Box<ExprToken>,
     span: Span,
 }

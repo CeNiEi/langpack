@@ -2,7 +2,7 @@ use error::Result;
 use lexer::{Lexer, token::Token as LexToken};
 
 mod error;
-mod symbols;
+pub mod symbols;
 mod util;
 
 pub(crate) mod prelude {
@@ -23,17 +23,17 @@ impl<'s> Parser<'s> {
         }
     }
 
-    pub fn next_lexed_token(&mut self) -> Result<LexToken> {
+    pub(crate) fn next_lexed_token(&mut self) -> Result<LexToken> {
         self.lexer.lex().map_err(Into::into)
     }
 
-    pub fn peek_lexed_token(&mut self) -> Result<LexToken> {
+    pub(crate) fn peek_lexed_token(&mut self) -> Result<LexToken> {
         let mut lexer = self.lexer;
 
         lexer.lex().map_err(Into::into)
     }
 
-    pub fn source(&self) -> &str {
+    pub(crate) fn source(&self) -> &str {
         self.lexer.source()
     }
 }

@@ -8,7 +8,7 @@ use crate::prelude::LexTokenKind;
 use super::Symbol;
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum LiteralToken {
+pub enum LiteralToken {
     Num(NumToken),
 }
 
@@ -32,7 +32,7 @@ impl<'s> Symbol<'s> for LiteralToken {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct NumToken {
+pub struct NumToken {
     value: f32,
     span: Span,
 }
