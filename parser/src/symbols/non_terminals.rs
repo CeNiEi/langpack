@@ -7,7 +7,10 @@ use utils::span::Span;
 
 use crate::error::{Error, ErrorKind};
 
-use super::{Symbol, terminals::LiteralToken};
+use super::{
+    Reduce, Symbol,
+    terminals::{LiteralToken, NumToken},
+};
 
 #[derive(Debug, PartialEq)]
 pub enum ExprToken {
@@ -15,6 +18,17 @@ pub enum ExprToken {
     BinExpr(BinExprToken),
     UnExpr(UnEpxrToken),
     ParenExpr(ParenExprToken),
+}
+
+impl Reduce for ExprToken {
+    fn reduce(&self) -> Self {
+        match self {
+            Self::LitExpr(token) => token.reduce(),
+            Self::BinExpr(token) => token.reduce(),
+            Self::UnExpr(token) => token.reduce(),
+            Self::ParenExpr(token) => token.reduce(),
+        }
+    }
 }
 
 impl ExprToken {
@@ -26,6 +40,15 @@ impl ExprToken {
             Self::ParenExpr(a) => a.span(),
         }
     }
+
+    pub(crate) fn set_span(&mut self, span: Span) {
+        match self {
+            Self::LitExpr(a) => a.set_span(span),
+            Self::BinExpr(a) => a.set_span(span),
+            Self::UnExpr(a) => a.set_span(span),
+            Self::ParenExpr(a) => a.set_span(span),
+        }
+    }
 }
 
 impl<'s> Symbol<'s> for ExprToken {
@@ -34,8 +57,8 @@ impl<'s> Symbol<'s> for ExprToken {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub(crate) enum BinOp {
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum BinOp {
     Add,
     Subtract,
     Multiply,
@@ -86,6 +109,35 @@ impl BinExprToken {
     pub(crate) fn span(&self) -> Span {
         self.span
     }
+
+    pub(crate) fn set_span(&mut self, span: Span) {
+        self.span = span;
+    }
+}
+
+impl Reduce for BinExprToken {
+    fn reduce(&self) -> ExprToken {
+        let lhs = self.lhs.reduce();
+        let rhs = self.rhs.reduce();
+        let op = self.op;
+
+        match (lhs, rhs) {
+            (
+                ExprToken::LitExpr(LiteralToken::Num(lhs_num)),
+                ExprToken::LitExpr(LiteralToken::Num(rhs_num)),
+            ) => {
+                let value = match op {
+                    BinOp::Add => lhs_num.value() + rhs_num.value(),
+                    BinOp::Subtract => lhs_num.value() - rhs_num.value(),
+                    BinOp::Multiply => lhs_num.value() * rhs_num.value(),
+                    BinOp::Divide => lhs_num.value() / rhs_num.value(),
+                };
+
+                ExprToken::LitExpr(LiteralToken::Num(NumToken::new(value, self.span)))
+            }
+            (lhs, rhs) => ExprToken::BinExpr(BinExprToken::new(lhs, rhs, op, self.span)),
+        }
+    }
 }
 
 impl<'s> Symbol<'s> for BinExprToken {
@@ -97,7 +149,7 @@ impl<'s> Symbol<'s> for BinExprToken {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum UnOp {
     Negation,
 }
@@ -127,6 +179,24 @@ pub struct UnEpxrToken {
     pub span: Span,
 }
 
+impl Reduce for UnEpxrToken {
+    fn reduce(&self) -> ExprToken {
+        let expr = self.expr.reduce();
+        let op = self.op;
+
+        match expr {
+            ExprToken::LitExpr(LiteralToken::Num(token)) => {
+                let value = match op {
+                    UnOp::Negation => NumToken::new(token.value(), self.span),
+                };
+
+                ExprToken::LitExpr(LiteralToken::Num(value))
+            }
+            rest => ExprToken::UnExpr(UnEpxrToken::new(rest, op, self.span)),
+        }
+    }
+}
+
 impl UnEpxrToken {
     pub(crate) fn new(expr: ExprToken, op: UnOp, span: Span) -> Self {
         Self {
@@ -138,6 +208,10 @@ impl UnEpxrToken {
 
     pub(crate) fn span(&self) -> Span {
         self.span
+    }
+
+    pub(crate) fn set_span(&mut self, span: Span) {
+        self.span = span;
     }
 }
 
@@ -161,6 +235,15 @@ pub struct ParenExprToken {
     span: Span,
 }
 
+impl Reduce for ParenExprToken {
+    fn reduce(&self) -> ExprToken {
+        let mut expr = self.inner.reduce();
+        expr.set_span(self.span);
+
+        expr
+    }
+}
+
 impl ParenExprToken {
     pub(crate) fn new(inner: ExprToken, span: Span) -> Self {
         Self {
@@ -171,6 +254,10 @@ impl ParenExprToken {
 
     pub(crate) fn span(&self) -> Span {
         self.span
+    }
+
+    pub(crate) fn set_span(&mut self, span: Span) {
+        self.span = span;
     }
 }
 

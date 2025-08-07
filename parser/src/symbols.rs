@@ -1,3 +1,5 @@
+use non_terminals::ExprToken;
+
 use crate::Parser;
 use crate::error::Result;
 
@@ -6,4 +8,8 @@ pub mod terminals;
 
 pub trait Symbol<'s>: Sized + 's {
     fn parse(parser: &mut Parser<'s>) -> Result<Self>;
+}
+
+pub trait Reduce: Sized {
+    fn reduce(&self) -> ExprToken;
 }

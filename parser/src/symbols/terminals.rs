@@ -5,7 +5,8 @@ use utils::span::Span;
 use crate::error::{EofErrMapper, Error, ErrorKind};
 use crate::prelude::LexTokenKind;
 
-use super::Symbol;
+use super::non_terminals::ExprToken;
+use super::{Reduce, Symbol};
 
 #[derive(Debug, PartialEq)]
 pub enum LiteralToken {
@@ -16,6 +17,20 @@ impl LiteralToken {
     pub(crate) fn span(&self) -> Span {
         match self {
             Self::Num(a) => a.span(),
+        }
+    }
+
+    pub(crate) fn set_span(&mut self, span: Span) {
+        match self {
+            Self::Num(a) => a.set_span(span),
+        }
+    }
+}
+
+impl Reduce for LiteralToken {
+    fn reduce(&self) -> ExprToken {
+        match self {
+            LiteralToken::Num(token) => token.reduce(),
         }
     }
 }
@@ -31,7 +46,7 @@ impl<'s> Symbol<'s> for LiteralToken {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct NumToken {
     value: f32,
     span: Span,
@@ -44,6 +59,20 @@ impl NumToken {
 
     pub(crate) fn span(&self) -> Span {
         self.span
+    }
+
+    pub(crate) fn value(&self) -> f32 {
+        self.value
+    }
+
+    pub(crate) fn set_span(&mut self, span: Span) {
+        self.span = span;
+    }
+}
+
+impl Reduce for NumToken {
+    fn reduce(&self) -> ExprToken {
+        ExprToken::LitExpr(LiteralToken::Num(self.to_owned()))
     }
 }
 
