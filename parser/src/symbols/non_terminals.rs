@@ -216,9 +216,9 @@ fn parse_expr_helper<'s>(
     };
 
     loop {
-        let next_token = parser.peek_lexed_token().map_eof_to_err()?;
+        let next_token = parser.peek_lexed_token()?;
 
-        if !next_token.kind().is_infix_op() {
+        if next_token.kind() == LexTokenKind::Eof || !next_token.kind().is_infix_op() {
             break;
         }
 
